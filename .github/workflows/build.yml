@@ -354,6 +354,45 @@ jobs:
             sed -i 's/^orig_flow:[[:space:]]*$/orig_flow: ;/' fs/notify/fdinfo.c || true
           fi
 
+      - name: Config kernel
+        working-directory: kernel
+        run: |
+          # --- FIX BASEBAND GUARD ---
+          if [ -f "security/Kconfig" ] && grep -q "baseband-guard" security/Kconfig; then
+            echo "Menghapus referensi Baseband Guard..."
+            sed -i '/security\/baseband-guard\/Kconfig/d' security/Kconfig
+          fi
+          
+          if [ ! -f "arch/arm64/configs/$DEFCONFIG" ]; then
+            echo "::error::Defconfig '$DEFCONFIG' tidak ditemukan."
+            exit 1
+          fi
+          
+          MK="make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_COMPAT=arm-linux-gnueabi-"
+          
+          # Auto-Enter untuk setiap pertanyaan konfigurasi baru saat load defconfig
+          yes "" | $MK "$DEFCONFIG"
+          
+          scripts/config --file out/.config \
+            -e KSU -e KSU_SUSFS \
+            -d KSU_MANUAL_HOOK -d KSU_TRACEPOINT_HOOK \
+            -e KSU_SUSFS_SUS_PATH -e KSU_SUSFS_SUS_MOUNT -e KSU_SUSFS_SUS_KSTAT \
+            -e KSU_SUSFS_SPOOF_UNAME -e KSU_SUSFS_OPEN_REDIRECT -e KSU_SUSFS_SUS_MAP \
+            -e KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS \
+            -d KSU_SUSFS_ENABLE_LOG -d KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG \
+            -d LTO_NONE -d LTO_CLANG_FULL -e LTO_CLANG_THIN \
+            -d DEBUG_INFO_BTF -d DEBUG_INFO_BTF_MODULES
+          
+          # Auto-Enter lagi saat olddefconfig merapikan file .config
+          yes "" | $MK olddefconfig
+          
+          grep KSU out/.config || true
+          grep -E "LTO|CFI" out/.config || true
+          for O in KSU KSU_SUSFS; do
+            grep -q "^CONFIG_${O}=y" out/.config || echo "::warning::CONFIG_${O} tidak aktif di out/.config"
+          done
+          
+
       - name: Perbaiki error kompilasi (Bypass)
         working-directory: kernel
         run: |
