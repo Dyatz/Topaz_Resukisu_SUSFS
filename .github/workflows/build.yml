@@ -57,7 +57,7 @@ jobs:
 
       - name: Clone kernel
         run: |
-          git clone --depth=1 -b "$KBRANCH" "$KREPO" kernel
+          git clone --depth=1 --recurse-submodules -b "$KBRANCH" "$KREPO" kernel
           git -C kernel log -1 --oneline
           head -4 kernel/Makefile
 
