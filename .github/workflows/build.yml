@@ -450,4 +450,3 @@ jobs:
           name: build-log
           path: build.log
           if-no-files-found: ignore
-EOF
