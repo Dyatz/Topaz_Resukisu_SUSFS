@@ -67,6 +67,25 @@ jobs:
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s "$KSU_BRANCH"
           ls -l drivers/kernelsu
 
+      - name: Normalisasi File Krusial (Revert ke Vanilla GKI)
+        working-directory: kernel
+        run: |
+          echo "Menghapus modifikasi berlebihan pada file yang bentrok dengan SUSFS..."
+          
+          # Daftar file yang sering dirombak oleh custom kernel dan menghalangi SUSFS
+          FILES="fs/proc/fd.c fs/namei.c fs/readdir.c fs/exec.c fs/namespace.c fs/open.c fs/stat.c fs/proc/task_mmu.c"
+          
+          for file in $FILES; do
+            if [ -f "$file" ]; then
+              echo "Mereset $file ke versi murni Google GKI 5.15..."
+              # Mengambil file raw (base64) dari repositori resmi Android Common Kernel
+              curl -s "https://android.googlesource.com/kernel/common/+/refs/heads/android13-5.15/$file?format=TEXT" | base64 -d > "$file"
+            fi
+          done
+          
+          echo "Normalisasi selesai. File siap menerima patch SUSFS."
+          
+
       - name: Patch SUSFS
         working-directory: kernel
         run: |
